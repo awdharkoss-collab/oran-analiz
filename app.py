@@ -33,7 +33,7 @@ st.title("⚽ Oran Analiz Pro")
 st.caption("Geçmiş Maç & Oran İstatistik Sistemi")
 
 @st.cache_data(show_spinner="Açılış ve Gerçek Kapanış oranları yükleniyor (~30 sn)...")
-def veriyi_yukle_v6():
+def veriyi_yukle_v7():
     df_list = []
 
     try:
@@ -135,7 +135,7 @@ def veriyi_yukle_v6():
         "AU35": ((ms_ev + ms_dep) > 3.5).map({True: "ÜST", False: "ALT"}).astype(str)
     })
 
-df_maclar = veriyi_yukle_v6()
+df_maclar = veriyi_yukle_v7()
 kapanis_sayisi = df_maclar["Kap_MS1"].notna().sum()
 st.caption(f"📊 Açılış Havuzu: {len(df_maclar):,} Maç | Gerçek Kapanış Havuzu: {kapanis_sayisi:,} Maç")
 
@@ -188,7 +188,8 @@ if toplam > 0:
     st.dataframe(iyms_df, use_container_width=True, hide_index=True)
 
     st.subheader("📋 Eşleşen Maçlar")
-    tablo_df = sonuc.head(150).fillna("-")
-    def renklendir(val):
-        if val in ["ÜST", "VAR"]: return "background-color: #00b050; color: white; font-weight: bold;"
-        if val in ["ALT", "YOK"]: return "background-color: #c00000; color: white; font-weight: bold;"
+    st.dataframe(sonuc.head(200), use_container_width=True, hide_index=True)
+else:
+    st.warning("Bu oranlarda maç bulunamadı. Tolerans değerini artırarak tekrar deneyin.")
+
+st.caption("ℹ️ Bu uygulama yalnızca geçmiş maç verilerine dayalı istatistiksel analiz sunar; bahis oynatmaz.")
