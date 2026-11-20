@@ -3,6 +3,7 @@ import pandas as pd
 import kagglehub
 import os
 import glob
+import gc
 
 st.set_page_config(page_title="Futbol Oran İstatistik Pro", page_icon="⚽", layout="centered")
 
@@ -29,59 +30,69 @@ st.markdown("""
 
 st.title("⚽ Futbol Oran İstatistik Pro")
 
-@st.cache_data(show_spinner="2000-2026 arası 600.000+ maçlık dev arşiv derleniyor (İlk açılış ~50 sn)...")
-def veriyi_yukle_mega():
-    # Kaggle üzerindeki en büyük bahis oranları ve maç arşivleri
+@st.cache_data(show_spinner="600.000+ maçlık arşiv RAM dostu modda yükleniyor...")
+def veriyi_yukle_pro():
     veri_setleri = [
         "adamgbor/club-football-match-data-2000-2025",
         "ahmadasadi00/football-betting-odds",
         "jalalelkhateb/football-odds-and-results-dataset",
-        "piterfm/football-matches-dataset",
-        "maxhorowitz/nflplaybyplay2009to2016",
         "thedevastator/football-match-results-and-betting-odds",
         "jiezi2004/football-matches-and-betting-odds"
     ]
     
-    df_list = []
+    hedef_haritasi = {
+        "LigKod": ["Division", "Div", "League", "league", "country", "Country", "tournament"],
+        "Tarih": ["MatchDate", "Date", "date", "match_date"],
+        "EvSahibi": ["HomeTeam", "Home", "home_team", "home", "HT"],
+        "Deplasman": ["AwayTeam", "Away", "away_team", "away", "AT"],
+        "Ac_MS1": ["OddHome", "B365H", "PSH", "WHH", "AvgH", "MaxH", "odd_1", "home_odds", "H"],
+        "Ac_MSX": ["OddDraw", "B365D", "PSD", "WHD", "AvgD", "MaxD", "odd_x", "draw_odds", "D"],
+        "Ac_MS2": ["OddAway", "B365A", "PSA", "WHA", "AvgA", "MaxA", "odd_2", "away_odds", "A"],
+        "Kap_MS1": ["CloseHome", "B365CH", "PSCH", "AvgCH"],
+        "Kap_MSX": ["CloseDraw", "B365CD", "PSCD", "AvgCD"],
+        "Kap_MS2": ["CloseAway", "B365CA", "PSCA", "AvgCA"],
+        "IY_Ev": ["HTHome", "HTHG", "ht_home"],
+        "IY_Dep": ["HTAway", "HTAG", "ht_away"],
+        "MS_Ev": ["FTHome", "FTHG", "home_score", "ft_home", "HG"],
+        "MS_Dep": ["FTAway", "FTAG", "away_score", "ft_away", "AG"]
+    }
+    tum_adaylar = set(sum(hedef_haritasi.values(), []))
+
+    parcalar = []
     for ds in veri_setleri:
         try:
             yol = kagglehub.dataset_download(ds)
             dosyalar = glob.glob(os.path.join(yol, "**/*.csv"), recursive=True)
             for d in dosyalar:
-                if os.path.getsize(d) > 15000:
+                if os.path.getsize(d) > 20000:
                     try:
-                        temp = pd.read_csv(d, low_memory=False)
+                        # Sadece eşleşen sütunları okuyarak RAM'i koru
+                        basliklar = pd.read_csv(d, nrows=0).columns.tolist()
+                        okunacak = [c for c in basliklar if c in tum_adaylar]
+                        if len(okunacak) < 5:
+                            continue
+                        temp = pd.read_csv(d, usecols=okunacak, low_memory=False)
                         sozluk = {}
-                        for hedef, adaylar in {
-                            "LigKod": ["Division", "Div", "League", "league", "country", "Country", "tournament"],
-                            "Tarih": ["MatchDate", "Date", "date", "match_date"],
-                            "EvSahibi": ["HomeTeam", "Home", "home_team", "home", "HT"],
-                            "Deplasman": ["AwayTeam", "Away", "away_team", "away", "AT"],
-                            "Ac_MS1": ["OddHome", "B365H", "PSH", "WHH", "AvgH", "MaxH", "odd_1", "home_odds", "H"],
-                            "Ac_MSX": ["OddDraw", "B365D", "PSD", "WHD", "AvgD", "MaxD", "odd_x", "draw_odds", "D"],
-                            "Ac_MS2": ["OddAway", "B365A", "PSA", "WHA", "AvgA", "MaxA", "odd_2", "away_odds", "A"],
-                            "Kap_MS1": ["CloseHome", "B365CH", "PSCH", "AvgCH"],
-                            "Kap_MSX": ["CloseDraw", "B365CD", "PSCD", "AvgCD"],
-                            "Kap_MS2": ["CloseAway", "B365CA", "PSCA", "AvgCA"],
-                            "IY_Ev": ["HTHome", "HTHG", "ht_home"],
-                            "IY_Dep": ["HTAway", "HTAG", "ht_away"],
-                            "MS_Ev": ["FTHome", "FTHG", "home_score", "ft_home", "HG"],
-                            "MS_Dep": ["FTAway", "FTAG", "away_score", "ft_away", "AG"]
-                        }.items():
+                        for hedef, adaylar in hedef_haritasi.items():
                             for a in adaylar:
                                 if a in temp.columns:
                                     sozluk[hedef] = temp[a]
                                     break
                         if all(k in sozluk for k in ["EvSahibi", "Deplasman", "Ac_MS1", "MS_Ev", "MS_Dep"]):
-                            df_list.append(pd.DataFrame(sozluk))
+                            parca = pd.DataFrame(sozluk)
+                            parca = parca.dropna(subset=["MS_Ev", "MS_Dep", "Ac_MS1"])
+                            parcalar.append(parca)
+                        del temp
+                        gc.collect()
                     except:
                         pass
         except:
             pass
 
-    temiz = pd.concat(df_list, ignore_index=True)
+    temiz = pd.concat(parcalar, ignore_index=True)
+    del parcalar
+    gc.collect()
 
-    # Bellek dostu sayısal dönüşüm (float32)
     for col in ["Ac_MS1", "Ac_MSX", "Ac_MS2", "Kap_MS1", "Kap_MSX", "Kap_MS2", "IY_Ev", "IY_Dep", "MS_Ev", "MS_Dep"]:
         if col not in temiz.columns:
             temiz[col] = pd.NA
@@ -95,7 +106,7 @@ def veriyi_yukle_mega():
 
     temiz = temiz.dropna(subset=["MS_Ev", "MS_Dep", "Ac_MS1", "Ac_MS2"])
     temiz = temiz[(temiz["Ac_MS1"] > 1.0) & (temiz["Ac_MS2"] > 1.0)]
-    temiz = temiz.drop_duplicates(subset=["Tarih", "EvSahibi", "Deplasman", "Ac_MS1"], keep="last").copy()
+    temiz = temiz.drop_duplicates(subset=["Tarih", "EvSahibi", "Deplasman", "Ac_MS1"], keep="last").tail(700000).copy()
 
     lig_sozlugu = {
         "E0": "İngiltere Premier Lig", "E1": "İngiltere Championship", "E2": "İngiltere League 1", "E3": "İngiltere League 2", "EC": "İngiltere National League",
@@ -130,7 +141,7 @@ def veriyi_yukle_mega():
     ms_s[ms_ev > ms_dep] = "1"
     ms_s[ms_ev < ms_dep] = "2"
 
-    return pd.DataFrame({
+    son = pd.DataFrame({
         "Lig": temiz["Lig"],
         "Tarih": temiz["Tarih"],
         "EvSahibi": temiz["EvSahibi"].astype(str),
@@ -145,8 +156,11 @@ def veriyi_yukle_mega():
         "AU25": ((ms_ev + ms_dep) > 2.5).map({True: "ÜST", False: "ALT"}).astype("category"),
         "AU35": ((ms_ev + ms_dep) > 3.5).map({True: "ÜST", False: "ALT"}).astype("category")
     })
+    del temiz
+    gc.collect()
+    return son
 
-df_maclar = veriyi_yukle_mega()
+df_maclar = veriyi_yukle_pro()
 st.caption(f"📊 Aktif Arşiv Kapasitesi: {len(df_maclar):,} Benzersiz Maç (2000 - 2026)")
 
 oran_tipi = st.radio("Oran Türü:", ["Açılış", "Kapanış"], horizontal=True)
@@ -186,4 +200,3 @@ if toplam > 0:
     k2.markdown(f'<div class="metric-card"><div class="metric-title">2.5 ÜST</div><div class="metric-value">%{u25/toplam*100:.0f}</div><div class="metric-sub">{toplam} maçta {u25}</div></div>', unsafe_allow_html=True)
     k3.markdown(f'<div class="metric-card"><div class="metric-title">KG VAR</div><div class="metric-value">%{kg/toplam*100:.0f}</div><div class="metric-sub">{toplam} maçta {kg}</div></div>', unsafe_allow_html=True)
 
-    s1, s2, s3 = st.columns(3)
