@@ -31,29 +31,29 @@ st.markdown("""
 
 st.title("⚽ Futbol Oran İstatistik Pro")
 
-@st.cache_data(show_spinner="2000-2026 dev maç arşivi hazırlanıyor (İlk açılış ~30 sn)...")
-def veriyi_yukle_stabil():
+@st.cache_data(show_spinner="2000-2026 dev maç arşivi hazırlanıyor (~25 sn)...")
+def veriyi_yukle_kesin():
+    # Sadece 1 GB RAM sınırına tam uyan hafif ve kapsamlı arşivler
     veri_setleri = [
         "adamgbor/club-football-match-data-2000-2025",
-        "ahmadasadi00/football-betting-odds",
-        "jalalelkhateb/football-odds-and-results-dataset"
+        "ahmadasadi00/football-betting-odds"
     ]
     
     hedef_haritasi = {
-        "LigKod": ["Division", "Div", "League", "league", "country", "Country"],
+        "LigKod": ["Division", "Div", "League", "country"],
         "Tarih": ["MatchDate", "Date", "date"],
-        "EvSahibi": ["HomeTeam", "Home", "home_team", "HT"],
-        "Deplasman": ["AwayTeam", "Away", "away_team", "AT"],
-        "Ac_MS1": ["OddHome", "B365H", "PSH", "WHH", "AvgH", "MaxH", "odd_1", "H"],
-        "Ac_MSX": ["OddDraw", "B365D", "PSD", "WHD", "AvgD", "MaxD", "odd_x", "D"],
-        "Ac_MS2": ["OddAway", "B365A", "PSA", "WHA", "AvgA", "MaxA", "odd_2", "A"],
+        "EvSahibi": ["HomeTeam", "Home", "home_team"],
+        "Deplasman": ["AwayTeam", "Away", "away_team"],
+        "Ac_MS1": ["OddHome", "B365H", "PSH", "WHH", "AvgH", "MaxH"],
+        "Ac_MSX": ["OddDraw", "B365D", "PSD", "WHD", "AvgD", "MaxD"],
+        "Ac_MS2": ["OddAway", "B365A", "PSA", "WHA", "AvgA", "MaxA"],
         "Kap_MS1": ["CloseHome", "B365CH", "PSCH", "AvgCH"],
         "Kap_MSX": ["CloseDraw", "B365CD", "PSCD", "AvgCD"],
         "Kap_MS2": ["CloseAway", "B365CA", "PSCA", "AvgCA"],
         "IY_Ev": ["HTHome", "HTHG"],
         "IY_Dep": ["HTAway", "HTAG"],
-        "MS_Ev": ["FTHome", "FTHG", "home_score", "HG"],
-        "MS_Dep": ["FTAway", "FTAG", "away_score", "AG"]
+        "MS_Ev": ["FTHome", "FTHG"],
+        "MS_Dep": ["FTAway", "FTAG"]
     }
     tum_adaylar = set(sum(hedef_haritasi.values(), []))
 
@@ -83,7 +83,6 @@ def veriyi_yukle_stabil():
                         gc.collect()
                     except:
                         pass
-            # Disk dolmasını önlemek için işlenen önbelleği sil
             shutil.rmtree(yol, ignore_errors=True)
         except:
             pass
@@ -105,7 +104,7 @@ def veriyi_yukle_stabil():
 
     temiz = temiz.dropna(subset=["MS_Ev", "MS_Dep", "Ac_MS1", "Ac_MS2"])
     temiz = temiz[(temiz["Ac_MS1"] > 1.0) & (temiz["Ac_MS2"] > 1.0)]
-    temiz = temiz.drop_duplicates(subset=["Tarih", "EvSahibi", "Deplasman", "Ac_MS1"], keep="last").tail(650000).copy()
+    temiz = temiz.drop_duplicates(subset=["Tarih", "EvSahibi", "Deplasman", "Ac_MS1"], keep="last").copy()
 
     lig_sozlugu = {
         "E0": "İngiltere Premier Lig", "E1": "İngiltere Championship", "E2": "İngiltere League 1", "E3": "İngiltere League 2", "EC": "İngiltere National League",
@@ -159,8 +158,8 @@ def veriyi_yukle_stabil():
     gc.collect()
     return son
 
-df_maclar = veriyi_yukle_stabil()
-st.caption(f"📊 Aktif Arşiv Kapasitesi: {len(df_maclar):,} Benzersiz Maç (2000 - 2026)")
+df_maclar = veriyi_yukle_kesin()
+st.caption(f"📊 Aktif Arşiv Kapasitesi: {len(df_maclar):,} Benzersiz Maç (2000 - Günümüz)")
 
 oran_tipi = st.radio("Oran Türü:", ["Açılış", "Kapanış"], horizontal=True)
 c1, c2 = st.columns(2)
@@ -201,3 +200,4 @@ if toplam > 0:
 
     s1, s2, s3 = st.columns(3)
     s1.markdown(f'<div class="metric-card"><div class="metric-title">MS 1</div><div class="metric-value">%{m1/toplam*100:.0f}</div><div class="metric-sub">{toplam} maçta {m1}</div></div>', unsafe_allow_html=True)
+    s2.markdown(f'<div class="metric-card"><div class="metric-title">MS X</div><div class="metric-value">%{mx/toplam*100:.0f}</div><div class="metric-sub">{toplam} maçta {mx}</div></div>', unsafe_allow_html=True)
