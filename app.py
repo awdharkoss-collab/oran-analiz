@@ -28,7 +28,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.title("⚽ Oran Analiz Pro")
-st.caption("Geniş Kapsamlı Geçmiş Maç & Oran İstatistik Arşivi")
+st.caption("Geçmiş Maç & Oran İstatistik Sistemi")
 
 @st.cache_data(show_spinner="Veritabanı yükleniyor, lütfen 20 saniye bekleyin...")
 def veriyi_yukle():
@@ -50,12 +50,23 @@ def veriyi_yukle():
     df["EvSahibi"] = df["HomeTeam"].fillna(df["Home"]) if ("HomeTeam" in df.columns and "Home" in df.columns) else df.get("HomeTeam", df.get("Home", "-"))
     df["Deplasman"] = df["AwayTeam"].fillna(df["Away"]) if ("AwayTeam" in df.columns and "Away" in df.columns) else df.get("AwayTeam", df.get("Away", "-"))
 
+    # Açılış Oranları
     df["Ac_MS1"] = pd.to_numeric(df.get("OddHome", df.get("B365H")), errors="coerce")
     df["Ac_MSX"] = pd.to_numeric(df.get("OddDraw", df.get("B365D")), errors="coerce")
     df["Ac_MS2"] = pd.to_numeric(df.get("OddAway", df.get("B365A")), errors="coerce")
-    df["Kap_MS1"] = pd.to_numeric(df.get("CloseHome", df.get("B365CH", df["Ac_MS1"])), errors="coerce").fillna(df["Ac_MS1"])
-    df["Kap_MSX"] = pd.to_numeric(df.get("CloseDraw", df.get("B365CD", df["Ac_MSX"])), errors="coerce").fillna(df["Ac_MSX"])
-    df["Kap_MS2"] = pd.to_numeric(df.get("CloseAway", df.get("B365CA", df["Ac_MS2"])), errors="coerce").fillna(df["Ac_MS2"])
+
+    # Gerçek Kapanış Oranları (Kopyalama yapmadan gerçek değerleri alır)
+    kap1 = df["CloseHome"] if "CloseHome" in df.columns else pd.Series(pd.NA, index=df.index)
+    if "B365CH" in df.columns: kap1 = kap1.fillna(df["B365CH"])
+    df["Kap_MS1"] = pd.to_numeric(kap1, errors="coerce")
+
+    kapx = df["CloseDraw"] if "CloseDraw" in df.columns else pd.Series(pd.NA, index=df.index)
+    if "B365CD" in df.columns: kapx = kapx.fillna(df["B365CD"])
+    df["Kap_MSX"] = pd.to_numeric(kapx, errors="coerce")
+
+    kap2 = df["CloseAway"] if "CloseAway" in df.columns else pd.Series(pd.NA, index=df.index)
+    if "B365CA" in df.columns: kap2 = kap2.fillna(df["B365CA"])
+    df["Kap_MS2"] = pd.to_numeric(kap2, errors="coerce")
 
     df["IY_Ev"] = pd.to_numeric(df.get("HTHome", df.get("HTHG")), errors="coerce")
     df["IY_Dep"] = pd.to_numeric(df.get("HTAway", df.get("HTAG")), errors="coerce")
