@@ -192,23 +192,9 @@ if toplam > 0:
     y2.metric("İY 1.5 ÜST / ALT", f"%{round(iy15_ust/toplam*100)} / %{round(iy15_alt/toplam*100)}", f"{iy15_ust} Üst | {iy15_alt} Alt")
 
     s1, s2, s3 = st.columns(3)
-        st.subheader("🎯 İY / MS Dağılımı")
-    iyms_df = sonuc["IyMs"].value_counts().reset_index()
-    iyms_df.columns = ["İY/MS", "Adet"]
-    iyms_df["Yüzde (%)"] = (iyms_df["Adet"] / toplam * 100).round(1)
-    st.dataframe(iyms_df, use_container_width=True, hide_index=True)
-
-    st.subheader("📋 Eşleşen Maçlar")
-    gosterilecek_kolonlar = [
-        "Lig", "Tarih", "EvSahibi", "Deplasman",
-        "Ac_MS1", "Ac_MSX", "Ac_MS2",
-        "IYSkor", "MSSkor", "IyMs", "Ms", "MsKg", "AU25", "IY05", "IY15"
-    ]
-    st.dataframe(sonuc[gosterilecek_kolonlar].head(200), use_container_width=True, hide_index=True)
-else:
-    st.warning("Bu oranlarda maç bulunamadı. Tolerans değerini artırarak tekrar deneyin.")
-
     s1.metric("MS 1", f"%{round(m1/toplam*100)}", f"{toplam} maçta {m1}")
     s2.metric("MS X", f"%{round(mx/toplam*100)}", f"{toplam} maçta {mx}")
     s3.metric("MS 2", f"%{round(m2/toplam*100)}", f"{toplam} maçta {m2}")
 
+    st.subheader("🎯 İY / MS Dağılımı")
+    iyms_df = sonuc["IyMs"].value_counts().reset_index()
