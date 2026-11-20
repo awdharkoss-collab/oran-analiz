@@ -29,12 +29,13 @@ st.markdown("""
 
 st.title("⚽ Futbol Oran İstatistik Pro")
 
-@st.cache_data(show_spinner="15+ yıllık 600.000+ maçlık veritabanı derleniyor (İlk açılış ~40 sn)...")
-def veriyi_yukle():
+@st.cache_data(show_spinner="15+ yıllık dev maç arşivi birleştiriliyor...")
+def veriyi_yukle_v2():
     veri_setleri = [
         "adamgbor/club-football-match-data-2000-2025",
         "ahmadasadi00/football-betting-odds",
-        "saife245/english-premier-league"
+        "martj42/international-football-results-from-1872-to-2017",
+        "hugomathien/soccer"
     ]
     
     df_list = []
@@ -43,44 +44,49 @@ def veriyi_yukle():
             yol = kagglehub.dataset_download(ds)
             dosyalar = glob.glob(os.path.join(yol, "**/*.csv"), recursive=True)
             for d in dosyalar:
-                if os.path.getsize(d) > 30000:
+                if os.path.getsize(d) > 20000:
                     try:
                         temp = pd.read_csv(d, low_memory=False)
-                        df_list.append(temp)
+                        # Esnek Sütun Eşleştirme
+                        sozluk = {}
+                        for hedef, adaylar in {
+                            "LigKod": ["Division", "Div", "League", "country", "tournament"],
+                            "Tarih": ["MatchDate", "Date", "date"],
+                            "EvSahibi": ["HomeTeam", "Home", "home_team", "HT"],
+                            "Deplasman": ["AwayTeam", "Away", "away_team", "AT"],
+                            "Ac_MS1": ["OddHome", "B365H", "PSH", "WHH", "AvgH", "MaxH", "H"],
+                            "Ac_MSX": ["OddDraw", "B365D", "PSD", "WHD", "AvgD", "MaxD", "D"],
+                            "Ac_MS2": ["OddAway", "B365A", "PSA", "WHA", "AvgA", "MaxA", "A"],
+                            "Kap_MS1": ["CloseHome", "B365CH", "PSCH", "AvgCH"],
+                            "Kap_MSX": ["CloseDraw", "B365CD", "PSCD", "AvgCD"],
+                            "Kap_MS2": ["CloseAway", "B365CA", "PSCA", "AvgCA"],
+                            "IY_Ev": ["HTHome", "HTHG"],
+                            "IY_Dep": ["HTAway", "HTAG"],
+                            "MS_Ev": ["FTHome", "FTHG", "home_score"],
+                            "MS_Dep": ["FTAway", "FTAG", "away_score"]
+                        }.items():
+                            for a in adaylar:
+                                if a in temp.columns:
+                                    sozluk[hedef] = temp[a]
+                                    break
+                        if all(k in sozluk for k in ["EvSahibi", "Deplasman", "Ac_MS1", "MS_Ev", "MS_Dep"]):
+                            df_list.append(pd.DataFrame(sozluk))
                     except:
                         pass
         except:
             pass
 
-    df = pd.concat(df_list, ignore_index=True)
+    temiz = pd.concat(df_list, ignore_index=True)
+    for col in ["Ac_MS1", "Ac_MSX", "Ac_MS2", "Kap_MS1", "Kap_MSX", "Kap_MS2", "IY_Ev", "IY_Dep", "MS_Ev", "MS_Dep"]:
+        if col not in temiz.columns:
+            temiz[col] = pd.NA
+        temiz[col] = pd.to_numeric(temiz[col], errors="coerce")
 
-    lig_col = df["Division"].fillna(df["Div"]) if ("Division" in df.columns and "Div" in df.columns) else df.get("Division", df.get("Div", "Diğer"))
-    tarih_col = df["MatchDate"].fillna(df["Date"]) if ("MatchDate" in df.columns and "Date" in df.columns) else df.get("MatchDate", df.get("Date", "-"))
-    ev_col = df["HomeTeam"].fillna(df["Home"]) if ("HomeTeam" in df.columns and "Home" in df.columns) else df.get("HomeTeam", df.get("Home", "-"))
-    dep_col = df["AwayTeam"].fillna(df["Away"]) if ("AwayTeam" in df.columns and "Away" in df.columns) else df.get("AwayTeam", df.get("Away", "-"))
-
-    ac_1 = pd.to_numeric(df.get("OddHome", df.get("B365H", df.get("AvgH"))), errors="coerce")
-    ac_x = pd.to_numeric(df.get("OddDraw", df.get("B365D", df.get("AvgD"))), errors="coerce")
-    ac_2 = pd.to_numeric(df.get("OddAway", df.get("B365A", df.get("AvgA"))), errors="coerce")
-
-    kap_1 = pd.to_numeric(df.get("CloseHome", df.get("B365CH", ac_1)), errors="coerce").fillna(ac_1)
-    kap_x = pd.to_numeric(df.get("CloseDraw", df.get("B365CD", ac_x)), errors="coerce").fillna(ac_x)
-    kap_2 = pd.to_numeric(df.get("CloseAway", df.get("B365CA", ac_2)), errors="coerce").fillna(ac_2)
-
-    iy_e = pd.to_numeric(df.get("HTHome", df.get("HTHG")), errors="coerce")
-    iy_d = pd.to_numeric(df.get("HTAway", df.get("HTAG")), errors="coerce")
-    ms_e = pd.to_numeric(df.get("FTHome", df.get("FTHG")), errors="coerce")
-    ms_d = pd.to_numeric(df.get("FTAway", df.get("FTAG")), errors="coerce")
-
-    temiz = pd.DataFrame({
-        "LigKod": lig_col,
-        "Tarih": pd.to_datetime(tarih_col, errors="coerce", format="mixed").dt.strftime("%Y-%m-%d").fillna(tarih_col.astype(str)),
-        "EvSahibi": ev_col.astype(str).str.strip(),
-        "Deplasman": dep_col.astype(str).str.strip(),
-        "Ac_MS1": ac_1, "Ac_MSX": ac_x, "Ac_MS2": ac_2,
-        "Kap_MS1": kap_1, "Kap_MSX": kap_x, "Kap_MS2": kap_2,
-        "IY_Ev": iy_e, "IY_Dep": iy_d, "MS_Ev": ms_e, "MS_Dep": ms_d
-    })
+    temiz["Kap_MS1"] = temiz["Kap_MS1"].fillna(temiz["Ac_MS1"])
+    temiz["Kap_MSX"] = temiz["Kap_MSX"].fillna(temiz["Ac_MSX"])
+    temiz["Kap_MS2"] = temiz["Kap_MS2"].fillna(temiz["Ac_MS2"])
+    temiz["LigKod"] = temiz.get("LigKod", pd.Series("Diğer", index=temiz.index)).fillna("Diğer")
+    temiz["Tarih"] = pd.to_datetime(temiz.get("Tarih", "-"), errors="coerce", format="mixed").dt.strftime("%Y-%m-%d").fillna("-")
 
     temiz = temiz.dropna(subset=["MS_Ev", "MS_Dep", "Ac_MS1", "Ac_MS2"])
     temiz = temiz.drop_duplicates(subset=["Tarih", "EvSahibi", "Deplasman", "Ac_MS1"], keep="last").copy()
@@ -131,7 +137,7 @@ def veriyi_yukle():
         "AU35": ((ms_ev + ms_dep) > 3.5).map({True: "ÜST", False: "ALT"})
     })
 
-df_maclar = veriyi_yukle()
+df_maclar = veriyi_yukle_v2()
 st.caption(f"📊 Aktif Arşiv Kapasitesi: {len(df_maclar):,} Benzersiz Maç (2000 - Günümüz)")
 
 oran_tipi = st.radio("Oran Türü:", ["Açılış", "Kapanış"], horizontal=True)
@@ -180,9 +186,3 @@ if toplam > 0:
     iyms_df = sonuc["IyMs"].value_counts().reset_index()
     iyms_df.columns = ["İY/MS", "Adet"]
     iyms_df["Yüzde (%)"] = (iyms_df["Adet"] / toplam * 100).round(1)
-    st.dataframe(iyms_df, use_container_width=True, hide_index=True)
-
-    st.subheader("📋 Eşleşen Maçlar")
-    def renklendir(val):
-        if val in ["ÜST", "VAR"]: return "background-color: #00b050; color: white; font-weight: bold;"
-        if val in ["ALT", "YOK"]: return "background-color: #c00000; color: white; font-weight: bold;"
