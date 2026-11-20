@@ -4,15 +4,11 @@ import kagglehub
 import os
 import glob
 
-st.set_page_config(page_title="Futbol Oran İstatistik Pro", page_icon="⚽", layout="centered")
+st.set_page_config(page_title="Bet365 Pro Analiz", page_icon="⚽", layout="centered")
 
 st.markdown("""
 <style>
     .stApp { background-color: #0e1117; color: #ffffff; }
-    label, .stRadio label, .stSelectbox label, .stNumberInput label, p {
-        color: #ffffff !important;
-        font-weight: 600 !important;
-    }
     .metric-card {
         background-color: #1c222d;
         border: 1px solid #2e3748;
@@ -27,101 +23,69 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.title("⚽ Futbol Oran İstatistik Pro")
+st.title("⚽ Bet365 Oran Analiz")
+st.caption("600.000+ Maçlık Açılış & Kapanış Arşivi")
 
-@st.cache_data(show_spinner="15+ yıllık 600.000+ maçlık veritabanı derleniyor (İlk açılış ~40 sn)...")
+@st.cache_data(show_spinner="Veritabanı yükleniyor, lütfen 20 saniye bekleyin...")
 def veriyi_yukle():
-    veri_setleri = [
-        "adamgbor/club-football-match-data-2000-2025",
-        "ahmadasadi00/football-betting-odds",
-        "saife245/english-premier-league"
-    ]
+    p1 = kagglehub.dataset_download("adamgbor/club-football-match-data-2000-2025")
+    p2 = kagglehub.dataset_download("ahmadasadi00/football-betting-odds")
+    dosyalar = glob.glob(os.path.join(p1, "**/*.csv"), recursive=True) + glob.glob(os.path.join(p2, "**/*.csv"), recursive=True)
     
     df_list = []
-    for ds in veri_setleri:
-        try:
-            yol = kagglehub.dataset_download(ds)
-            dosyalar = glob.glob(os.path.join(yol, "**/*.csv"), recursive=True)
-            for d in dosyalar:
-                if os.path.getsize(d) > 30000:
-                    try:
-                        temp = pd.read_csv(d, low_memory=False)
-                        df_list.append(temp)
-                    except:
-                        pass
-        except:
-            pass
-
+    for d in dosyalar:
+        if os.path.getsize(d) > 50000:
+            try:
+                df_list.append(pd.read_csv(d, low_memory=False))
+            except:
+                pass
     df = pd.concat(df_list, ignore_index=True)
 
-    lig_col = df["Division"].fillna(df["Div"]) if ("Division" in df.columns and "Div" in df.columns) else df.get("Division", df.get("Div", "Diğer"))
-    tarih_col = df["MatchDate"].fillna(df["Date"]) if ("MatchDate" in df.columns and "Date" in df.columns) else df.get("MatchDate", df.get("Date", "-"))
-    ev_col = df["HomeTeam"].fillna(df["Home"]) if ("HomeTeam" in df.columns and "Home" in df.columns) else df.get("HomeTeam", df.get("Home", "-"))
-    dep_col = df["AwayTeam"].fillna(df["Away"]) if ("AwayTeam" in df.columns and "Away" in df.columns) else df.get("AwayTeam", df.get("Away", "-"))
+    df["LigKod"] = df["Division"].fillna(df["Div"]) if ("Division" in df.columns and "Div" in df.columns) else df.get("Division", df.get("Div", "Diğer"))
+    df["Tarih"] = df["MatchDate"].fillna(df["Date"]) if ("MatchDate" in df.columns and "Date" in df.columns) else df.get("MatchDate", df.get("Date", "-"))
+    df["EvSahibi"] = df["HomeTeam"].fillna(df["Home"]) if ("HomeTeam" in df.columns and "Home" in df.columns) else df.get("HomeTeam", df.get("Home", "-"))
+    df["Deplasman"] = df["AwayTeam"].fillna(df["Away"]) if ("AwayTeam" in df.columns and "Away" in df.columns) else df.get("AwayTeam", df.get("Away", "-"))
 
-    ac_1 = pd.to_numeric(df.get("OddHome", df.get("B365H", df.get("AvgH"))), errors="coerce")
-    ac_x = pd.to_numeric(df.get("OddDraw", df.get("B365D", df.get("AvgD"))), errors="coerce")
-    ac_2 = pd.to_numeric(df.get("OddAway", df.get("B365A", df.get("AvgA"))), errors="coerce")
+    df["Ac_MS1"] = pd.to_numeric(df.get("OddHome", df.get("B365H")), errors="coerce")
+    df["Ac_MSX"] = pd.to_numeric(df.get("OddDraw", df.get("B365D")), errors="coerce")
+    df["Ac_MS2"] = pd.to_numeric(df.get("OddAway", df.get("B365A")), errors="coerce")
+    df["Kap_MS1"] = pd.to_numeric(df.get("CloseHome", df.get("B365CH", df["Ac_MS1"])), errors="coerce").fillna(df["Ac_MS1"])
+    df["Kap_MSX"] = pd.to_numeric(df.get("CloseDraw", df.get("B365CD", df["Ac_MSX"])), errors="coerce").fillna(df["Ac_MSX"])
+    df["Kap_MS2"] = pd.to_numeric(df.get("CloseAway", df.get("B365CA", df["Ac_MS2"])), errors="coerce").fillna(df["Ac_MS2"])
 
-    kap_1 = pd.to_numeric(df.get("CloseHome", df.get("B365CH", ac_1)), errors="coerce").fillna(ac_1)
-    kap_x = pd.to_numeric(df.get("CloseDraw", df.get("B365CD", ac_x)), errors="coerce").fillna(ac_x)
-    kap_2 = pd.to_numeric(df.get("CloseAway", df.get("B365CA", ac_2)), errors="coerce").fillna(ac_2)
+    df["IY_Ev"] = pd.to_numeric(df.get("HTHome", df.get("HTHG")), errors="coerce")
+    df["IY_Dep"] = pd.to_numeric(df.get("HTAway", df.get("HTAG")), errors="coerce")
+    df["MS_Ev"] = pd.to_numeric(df.get("FTHome", df.get("FTHG")), errors="coerce")
+    df["MS_Dep"] = pd.to_numeric(df.get("FTAway", df.get("FTAG")), errors="coerce")
 
-    iy_e = pd.to_numeric(df.get("HTHome", df.get("HTHG")), errors="coerce")
-    iy_d = pd.to_numeric(df.get("HTAway", df.get("HTAG")), errors="coerce")
-    ms_e = pd.to_numeric(df.get("FTHome", df.get("FTHG")), errors="coerce")
-    ms_d = pd.to_numeric(df.get("FTAway", df.get("FTAG")), errors="coerce")
-
-    temiz = pd.DataFrame({
-        "LigKod": lig_col,
-        "Tarih": pd.to_datetime(tarih_col, errors="coerce", format="mixed").dt.strftime("%Y-%m-%d").fillna(tarih_col.astype(str)),
-        "EvSahibi": ev_col.astype(str).str.strip(),
-        "Deplasman": dep_col.astype(str).str.strip(),
-        "Ac_MS1": ac_1, "Ac_MSX": ac_x, "Ac_MS2": ac_2,
-        "Kap_MS1": kap_1, "Kap_MSX": kap_x, "Kap_MS2": kap_2,
-        "IY_Ev": iy_e, "IY_Dep": iy_d, "MS_Ev": ms_e, "MS_Dep": ms_d
-    })
-
-    temiz = temiz.dropna(subset=["MS_Ev", "MS_Dep", "Ac_MS1", "Ac_MS2"])
-    temiz = temiz.drop_duplicates(subset=["Tarih", "EvSahibi", "Deplasman", "Ac_MS1"], keep="last").copy()
+    df = df.dropna(subset=["MS_Ev", "MS_Dep", "Ac_MS1", "Ac_MS2"]).drop_duplicates(subset=["Tarih", "EvSahibi", "Deplasman"], keep="last").tail(600000).copy()
 
     lig_sozlugu = {
-        "E0": "İngiltere Premier Lig", "E1": "İngiltere Championship", "E2": "İngiltere League 1", "E3": "İngiltere League 2", "EC": "İngiltere National League",
-        "D1": "Almanya Bundesliga 1", "D2": "Almanya Bundesliga 2", "D3": "Almanya 3. Liga",
-        "SP1": "İspanya La Liga", "SP2": "İspanya La Liga 2",
-        "I1": "İtalya Serie A", "I2": "İtalya Serie B",
-        "F1": "Fransa Ligue 1", "F2": "Fransa Ligue 2",
-        "T1": "Türkiye Süper Lig", "T2": "Türkiye 1. Lig",
-        "N1": "Hollanda Eredivisie", "N2": "Hollanda Eerste Divisie",
-        "P1": "Portekiz Premier Lig", "P2": "Portekiz Liga 2",
-        "B1": "Belçika Pro League", "B2": "Belçika 2. Lig",
-        "SC0": "İskoçya Premiership", "SC1": "İskoçya Championship", "SC2": "İskoçya League One", "SC3": "İskoçya League Two",
-        "G1": "Yunanistan Süper Lig", "ARG": "Arjantin Primera", "AUT": "Avusturya Bundesliga",
-        "BRA": "Brezilya Serie A", "BRB": "Brezilya Serie B", "CHN": "Çin Süper Ligi",
-        "DNK": "Danimarka Superliga", "FIN": "Finlandiya Veikkausliiga", "IRL": "İrlanda Premier",
-        "JPN": "Japonya J1 League", "MEX": "Meksika Liga MX", "NOR": "Norveç Eliteserien",
-        "POL": "Polonya Ekstraklasa", "ROU": "Romanya Liga 1", "RUS": "Rusya Premier Lig",
-        "SWE": "İsveç Allsvenskan", "SWZ": "İsviçre Super League", "USA": "ABD MLS"
+        "E0": "İngiltere Premier Lig", "E1": "İngiltere Championship", "E2": "İngiltere League 1", "E3": "İngiltere League 2",
+        "D1": "Almanya Bundesliga 1", "D2": "Almanya Bundesliga 2", "SP1": "İspanya La Liga", "SP2": "İspanya La Liga 2",
+        "I1": "İtalya Serie A", "I2": "İtalya Serie B", "F1": "Fransa Ligue 1", "F2": "Fransa Ligue 2",
+        "T1": "Türkiye Süper Lig", "T2": "Türkiye 1. Lig", "N1": "Hollanda Eredivisie", "P1": "Portekiz Premier Lig",
+        "B1": "Belçika Pro League", "B2": "Belçika 2. Lig", "SC0": "İskoçya Premiership", "G1": "Yunanistan Süper Lig"
     }
-    temiz["Lig"] = temiz["LigKod"].astype(str).str.strip().map(lig_sozlugu).fillna(temiz["LigKod"])
+    df["Lig"] = df["LigKod"].astype(str).str.strip().map(lig_sozlugu).fillna(df["LigKod"])
 
-    iy_ev = temiz["IY_Ev"].fillna(0).astype(int)
-    iy_dep = temiz["IY_Dep"].fillna(0).astype(int)
-    ms_ev = temiz["MS_Ev"].fillna(0).astype(int)
-    ms_dep = temiz["MS_Dep"].fillna(0).astype(int)
+    iy_ev = df["IY_Ev"].fillna(0).astype(int)
+    iy_dep = df["IY_Dep"].fillna(0).astype(int)
+    ms_ev = df["MS_Ev"].fillna(0).astype(int)
+    ms_dep = df["MS_Dep"].fillna(0).astype(int)
 
-    iy_s = pd.Series("X", index=temiz.index)
+    iy_s = pd.Series("X", index=df.index)
     iy_s[iy_ev > iy_dep] = "1"
     iy_s[iy_ev < iy_dep] = "2"
 
-    ms_s = pd.Series("X", index=temiz.index)
+    ms_s = pd.Series("X", index=df.index)
     ms_s[ms_ev > ms_dep] = "1"
     ms_s[ms_ev < ms_dep] = "2"
 
     return pd.DataFrame({
-        "Lig": temiz["Lig"], "Tarih": temiz["Tarih"], "EvSahibi": temiz["EvSahibi"], "Deplasman": temiz["Deplasman"],
-        "Ac_MS1": temiz["Ac_MS1"], "Ac_MSX": temiz["Ac_MSX"], "Ac_MS2": temiz["Ac_MS2"],
-        "Kap_MS1": temiz["Kap_MS1"], "Kap_MSX": temiz["Kap_MSX"], "Kap_MS2": temiz["Kap_MS2"],
+        "Lig": df["Lig"], "Tarih": df["Tarih"], "EvSahibi": df["EvSahibi"], "Deplasman": df["Deplasman"],
+        "Ac_MS1": df["Ac_MS1"], "Ac_MSX": df["Ac_MSX"], "Ac_MS2": df["Ac_MS2"],
+        "Kap_MS1": df["Kap_MS1"], "Kap_MSX": df["Kap_MSX"], "Kap_MS2": df["Kap_MS2"],
         "IYSkor": iy_ev.astype(str) + "-" + iy_dep.astype(str),
         "MSSkor": ms_ev.astype(str) + "-" + ms_dep.astype(str),
         "IyMs": iy_s + "/" + ms_s,
@@ -132,7 +96,6 @@ def veriyi_yukle():
     })
 
 df_maclar = veriyi_yukle()
-st.caption(f"📊 Aktif Arşiv Kapasitesi: {len(df_maclar):,} Benzersiz Maç (2000 - Günümüz)")
 
 oran_tipi = st.radio("Oran Türü:", ["Açılış", "Kapanış"], horizontal=True)
 c1, c2 = st.columns(2)
@@ -167,7 +130,7 @@ if toplam > 0:
     kg = (sonuc["MsKg"] == "VAR").sum()
 
     k1, k2, k3 = st.columns(3)
-    k1.markdown(f'<div class="metric-card"><div class="metric-title">EŞLEŞEN MAÇ</div><div class="metric-value">{toplam}</div><div class="metric-sub">Havuz: {len(df_maclar):,}</div></div>', unsafe_allow_html=True)
+    k1.markdown(f'<div class="metric-card"><div class="metric-title">MAÇ</div><div class="metric-value">{toplam}</div><div class="metric-sub">Toplam</div></div>', unsafe_allow_html=True)
     k2.markdown(f'<div class="metric-card"><div class="metric-title">2.5 ÜST</div><div class="metric-value">%{u25/toplam*100:.0f}</div><div class="metric-sub">{toplam} maçta {u25}</div></div>', unsafe_allow_html=True)
     k3.markdown(f'<div class="metric-card"><div class="metric-title">KG VAR</div><div class="metric-value">%{kg/toplam*100:.0f}</div><div class="metric-sub">{toplam} maçta {kg}</div></div>', unsafe_allow_html=True)
 
@@ -186,3 +149,9 @@ if toplam > 0:
     def renklendir(val):
         if val in ["ÜST", "VAR"]: return "background-color: #00b050; color: white; font-weight: bold;"
         if val in ["ALT", "YOK"]: return "background-color: #c00000; color: white; font-weight: bold;"
+        if val in ["1", "2", "1/1", "2/2", "2/1", "1/2"]: return "background-color: #ed7d31; color: white; font-weight: bold;"
+        return ""
+
+    st.dataframe(sonuc.head(150).style.map(renklendir, subset=["Ms", "IyMs", "MsKg", "AU25", "AU35"]), use_container_width=True, hide_index=True)
+else:
+    st.warning("Bu oranlarda maç bulunamadı.")
