@@ -195,4 +195,12 @@ if toplam > 0:
     s1.metric("MS 1", f"%{round(m1/toplam*100)}", f"{toplam} maçta {m1}")
     s2.metric("MS X", f"%{round(mx/toplam*100)}", f"{toplam} maçta {mx}")
     s3.metric("MS 2", f"%{round(m2/toplam*100)}", f"{toplam} maçta {m2}")
+    st.subheader("🎯 İY / MS Dağılımı")
+    iyms_sayim = sonuc["IyMs"].astype(str).value_counts().reset_index()
+    iyms_sayim.columns = ["İY/MS", "Adet"]
+    iyms_sayim["Yüzde (%)"] = (iyms_sayim["Adet"] / toplam * 100).round(1)
+    st.table(iyms_sayim)
+
+    st.subheader("📋 Eşleşen Maçlar")
+    st.table(sonuc[["Lig", "Tarih", "EvSahibi", "Deplasman", "Ac_MS1", "Ac_MSX", "Ac_MS2", "IYSkor", "MSSkor", "IyMs", "MsKg", "AU25"]].head(100).astype(str))
 
