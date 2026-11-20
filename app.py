@@ -33,10 +33,9 @@ st.title("⚽ Oran Analiz Pro")
 st.caption("Geçmiş Maç & Oran İstatistik Sistemi")
 
 @st.cache_data(show_spinner="Açılış ve Gerçek Kapanış oranları yükleniyor (~30 sn)...")
-def veriyi_yukle_v5():
+def veriyi_yukle_v6():
     df_list = []
 
-    # 1. Kaggle Geniş Açılış Arşivi (2000 - 2025)
     try:
         p1 = kagglehub.dataset_download("adamgbor/club-football-match-data-2000-2025")
         p2 = kagglehub.dataset_download("ahmadasadi00/football-betting-odds")
@@ -50,7 +49,6 @@ def veriyi_yukle_v5():
     except:
         pass
 
-    # 2. Tarayıcı Kimliği ile Gerçek Kapanış Oranlı Sezonları Çek (2019 - 2026)
     ligler = ["E0", "E1", "E2", "E3", "D1", "D2", "SP1", "SP2", "I1", "I2", "F1", "F2", "T1", "N1", "P1", "B1", "SC0", "G1"]
     sezonlar = ["2526", "2425", "2324", "2223", "2122", "2021", "1920"]
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
@@ -95,7 +93,6 @@ def veriyi_yukle_v5():
     df["MS_Ev"] = sutun_birlestir(["FTHome", "FTHG"])
     df["MS_Dep"] = sutun_birlestir(["FTAway", "FTAG"])
 
-    # Kapanış oranı dolu olan satırları en sona alıp koru
     df = df.dropna(subset=["MS_Ev", "MS_Dep", "Ac_MS1", "Ac_MS2"])
     df = df.sort_values(by="Kap_MS1", na_position="first")
     df = df.drop_duplicates(subset=["EvSahibi", "Deplasman", "MS_Ev", "MS_Dep", "Ac_MS1"], keep="last").copy()
@@ -123,19 +120,22 @@ def veriyi_yukle_v5():
     ms_s[ms_ev < ms_dep] = "2"
 
     return pd.DataFrame({
-        "Lig": df["Lig"], "Tarih": df["Tarih"], "EvSahibi": df["EvSahibi"], "Deplasman": df["Deplasman"],
-        "Ac_MS1": df["Ac_MS1"], "Ac_MSX": df["Ac_MSX"], "Ac_MS2": df["Ac_MS2"],
-        "Kap_MS1": df["Kap_MS1"], "Kap_MSX": df["Kap_MSX"], "Kap_MS2": df["Kap_MS2"],
+        "Lig": df["Lig"].astype(str),
+        "Tarih": df["Tarih"].astype(str),
+        "EvSahibi": df["EvSahibi"].astype(str),
+        "Deplasman": df["Deplasman"].astype(str),
+        "Ac_MS1": df["Ac_MS1"].round(2), "Ac_MSX": df["Ac_MSX"].round(2), "Ac_MS2": df["Ac_MS2"].round(2),
+        "Kap_MS1": df["Kap_MS1"].round(2), "Kap_MSX": df["Kap_MSX"].round(2), "Kap_MS2": df["Kap_MS2"].round(2),
         "IYSkor": iy_ev.astype(str) + "-" + iy_dep.astype(str),
         "MSSkor": ms_ev.astype(str) + "-" + ms_dep.astype(str),
-        "IyMs": iy_s + "/" + ms_s,
-        "Ms": ms_s,
-        "MsKg": ((ms_ev > 0) & (ms_dep > 0)).map({True: "VAR", False: "YOK"}),
-        "AU25": ((ms_ev + ms_dep) > 2.5).map({True: "ÜST", False: "ALT"}),
-        "AU35": ((ms_ev + ms_dep) > 3.5).map({True: "ÜST", False: "ALT"})
+        "IyMs": (iy_s + "/" + ms_s).astype(str),
+        "Ms": ms_s.astype(str),
+        "MsKg": ((ms_ev > 0) & (ms_dep > 0)).map({True: "VAR", False: "YOK"}).astype(str),
+        "AU25": ((ms_ev + ms_dep) > 2.5).map({True: "ÜST", False: "ALT"}).astype(str),
+        "AU35": ((ms_ev + ms_dep) > 3.5).map({True: "ÜST", False: "ALT"}).astype(str)
     })
 
-df_maclar = veriyi_yukle_v5()
+df_maclar = veriyi_yukle_v6()
 kapanis_sayisi = df_maclar["Kap_MS1"].notna().sum()
 st.caption(f"📊 Açılış Havuzu: {len(df_maclar):,} Maç | Gerçek Kapanış Havuzu: {kapanis_sayisi:,} Maç")
 
@@ -188,6 +188,7 @@ if toplam > 0:
     st.dataframe(iyms_df, use_container_width=True, hide_index=True)
 
     st.subheader("📋 Eşleşen Maçlar")
+    tablo_df = sonuc.head(150).fillna("-")
     def renklendir(val):
         if val in ["ÜST", "VAR"]: return "background-color: #00b050; color: white; font-weight: bold;"
         if val in ["ALT", "YOK"]: return "background-color: #c00000; color: white; font-weight: bold;"
