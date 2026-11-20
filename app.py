@@ -7,27 +7,6 @@ import gc
 
 st.set_page_config(page_title="Oran Analiz Pro", page_icon="⚽", layout="centered")
 
-st.markdown("""
-<style>
-    .stApp { background-color: #0e1117; color: #ffffff; }
-    label, .stRadio label, .stSelectbox label, .stNumberInput label, p {
-        color: #ffffff !important;
-        font-weight: 600 !important;
-    }
-    .metric-card {
-        background-color: #1c222d;
-        border: 1px solid #2e3748;
-        border-radius: 10px;
-        padding: 10px;
-        text-align: center;
-        margin-bottom: 8px;
-    }
-    .metric-title { font-size: 12px; color: #9aa5b1; font-weight: bold; }
-    .metric-value { font-size: 20px; color: #00e676; font-weight: bold; }
-    .metric-sub { font-size: 11px; color: #cbd2d9; }
-</style>
-""", unsafe_allow_html=True)
-
 st.title("⚽ Oran Analiz Pro")
 st.caption("Geçmiş Maç & Açılış Oran İstatistik Sistemi")
 
@@ -204,4 +183,16 @@ if toplam > 0:
     iy15_alt = toplam - iy15_ust
 
     k1, k2, k3 = st.columns(3)
-    k1.markdown(f'<div class="metric-card"><div class="metric-title">MAÇ</div><div class="metric-value">{toplam}</div><div class="metric-sub">Havuz: {len(df_maclar):,}</div></div>', unsafe_allow_html=True)
+    k1.metric("EŞLEŞEN MAÇ", f"{toplam}", f"Havuz: {len(df_maclar):,}")
+    k2.metric("2.5 ÜST / ALT", f"%{round(u25/toplam*100)} / %{round(a25/toplam*100)}", f"{u25} Üst | {a25} Alt")
+    k3.metric("KG VAR / YOK", f"%{round(kg/toplam*100)} / %{round(kgy/toplam*100)}", f"{kg} Var | {kgy} Yok")
+
+    y1, y2 = st.columns(2)
+    y1.metric("İY 0.5 ÜST / ALT", f"%{round(iy05_ust/toplam*100)} / %{round(iy05_alt/toplam*100)}", f"{iy05_ust} Üst | {iy05_alt} Alt")
+    y2.metric("İY 1.5 ÜST / ALT", f"%{round(iy15_ust/toplam*100)} / %{round(iy15_alt/toplam*100)}", f"{iy15_ust} Üst | {iy15_alt} Alt")
+
+    s1, s2, s3 = st.columns(3)
+    s1.metric("MS 1", f"%{round(m1/toplam*100)}", f"{toplam} maçta {m1}")
+    s2.metric("MS X", f"%{round(mx/toplam*100)}", f"{toplam} maçta {mx}")
+    s3.metric("MS 2", f"%{round(m2/toplam*100)}", f"{toplam} maçta {m2}")
+
