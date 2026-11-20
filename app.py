@@ -1,6 +1,8 @@
 import streamlit as st
 import pandas as pd
 import kagglehub
+import urllib.request
+import io
 import os
 import glob
 
@@ -30,8 +32,8 @@ st.markdown("""
 st.title("⚽ Oran Analiz Pro")
 st.caption("Geçmiş Maç & Oran İstatistik Sistemi")
 
-@st.cache_data(show_spinner="Açılış ve Gerçek Kapanış oranları derleniyor (~25 sn)...")
-def veriyi_yukle_v4():
+@st.cache_data(show_spinner="Açılış ve Gerçek Kapanış oranları yükleniyor (~30 sn)...")
+def veriyi_yukle_v5():
     df_list = []
 
     # 1. Kaggle Geniş Açılış Arşivi (2000 - 2025)
@@ -48,16 +50,21 @@ def veriyi_yukle_v4():
     except:
         pass
 
-    # 2. Resmi Football-Data Gerçek Kapanış Oranlı Sezonlar (2019 - 2026)
+    # 2. Tarayıcı Kimliği ile Gerçek Kapanış Oranlı Sezonları Çek (2019 - 2026)
     ligler = ["E0", "E1", "E2", "E3", "D1", "D2", "SP1", "SP2", "I1", "I2", "F1", "F2", "T1", "N1", "P1", "B1", "SC0", "G1"]
     sezonlar = ["2526", "2425", "2324", "2223", "2122", "2021", "1920"]
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+    
     for sez in sezonlar:
         for lg in ligler:
             url = f"https://football-data.co.uk{sez}/{lg}.csv"
             try:
-                t_df = pd.read_csv(url, encoding="latin1", on_bad_lines="skip")
-                if "B365CH" in t_df.columns or "PSCH" in t_df.columns:
-                    df_list.append(t_df)
+                req = urllib.request.Request(url, headers=headers)
+                with urllib.request.urlopen(req, timeout=5) as resp:
+                    icerik = resp.read().decode("latin1")
+                    t_df = pd.read_csv(io.StringIO(icerik), on_bad_lines="skip")
+                    if "B365CH" in t_df.columns or "PSCH" in t_df.columns:
+                        df_list.append(t_df)
             except:
                 pass
 
@@ -75,12 +82,10 @@ def veriyi_yukle_v4():
                 seri = seri.fillna(df[col])
         return pd.to_numeric(seri, errors="coerce")
 
-    # Açılış Oranları
     df["Ac_MS1"] = sutun_birlestir(["OddHome", "B365H", "PSH", "AvgH"])
     df["Ac_MSX"] = sutun_birlestir(["OddDraw", "B365D", "PSD", "AvgD"])
     df["Ac_MS2"] = sutun_birlestir(["OddAway", "B365A", "PSA", "AvgA"])
 
-    # Gerçek Kapanış Oranları
     df["Kap_MS1"] = sutun_birlestir(["B365CH", "PSCH", "AvgCH", "MaxCH", "CloseHome"])
     df["Kap_MSX"] = sutun_birlestir(["B365CD", "PSCD", "AvgCD", "MaxCD", "CloseDraw"])
     df["Kap_MS2"] = sutun_birlestir(["B365CA", "PSCA", "AvgCA", "MaxCA", "CloseAway"])
@@ -90,7 +95,10 @@ def veriyi_yukle_v4():
     df["MS_Ev"] = sutun_birlestir(["FTHome", "FTHG"])
     df["MS_Dep"] = sutun_birlestir(["FTAway", "FTAG"])
 
-    df = df.dropna(subset=["MS_Ev", "MS_Dep", "Ac_MS1", "Ac_MS2"]).drop_duplicates(subset=["Tarih", "EvSahibi", "Deplasman"], keep="last").copy()
+    # Kapanış oranı dolu olan satırları en sona alıp koru
+    df = df.dropna(subset=["MS_Ev", "MS_Dep", "Ac_MS1", "Ac_MS2"])
+    df = df.sort_values(by="Kap_MS1", na_position="first")
+    df = df.drop_duplicates(subset=["EvSahibi", "Deplasman", "MS_Ev", "MS_Dep", "Ac_MS1"], keep="last").copy()
 
     lig_sozlugu = {
         "E0": "İngiltere Premier Lig", "E1": "İngiltere Championship", "E2": "İngiltere League 1", "E3": "İngiltere League 2",
@@ -127,7 +135,7 @@ def veriyi_yukle_v4():
         "AU35": ((ms_ev + ms_dep) > 3.5).map({True: "ÜST", False: "ALT"})
     })
 
-df_maclar = veriyi_yukle_v4()
+df_maclar = veriyi_yukle_v5()
 kapanis_sayisi = df_maclar["Kap_MS1"].notna().sum()
 st.caption(f"📊 Açılış Havuzu: {len(df_maclar):,} Maç | Gerçek Kapanış Havuzu: {kapanis_sayisi:,} Maç")
 
@@ -183,11 +191,3 @@ if toplam > 0:
     def renklendir(val):
         if val in ["ÜST", "VAR"]: return "background-color: #00b050; color: white; font-weight: bold;"
         if val in ["ALT", "YOK"]: return "background-color: #c00000; color: white; font-weight: bold;"
-        if val in ["1", "2", "1/1", "2/2", "2/1", "1/2"]: return "background-color: #ed7d31; color: white; font-weight: bold;"
-        return ""
-
-    st.dataframe(sonuc.head(150).style.map(renklendir, subset=["Ms", "IyMs", "MsKg", "AU25", "AU35"]), use_container_width=True, hide_index=True)
-else:
-    st.warning("Bu oranlarda maç bulunamadı. Tolerans değerini artırarak tekrar deneyin.")
-
-st.caption("ℹ️ Bu uygulama yalnızca geçmiş maç verilerine dayalı istatistiksel analiz sunar; bahis oynatmaz.")
