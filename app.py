@@ -151,20 +151,17 @@ def veriyi_yukle_acilis():
 df_maclar = veriyi_yukle_acilis()
 st.caption(f"📊 Açılış Oran Havuzu: {len(df_maclar):,} Maç")
 
-# Maç Sonu Açılış Oranları
 c1, c2, c3 = st.columns(3)
 ms1 = c1.number_input("MS 1 Açılış", min_value=0.0, value=1.82, step=0.01, format="%.2f")
 msx = c2.number_input("MS X Açılış (0=Boş)", min_value=0.0, value=0.00, step=0.01, format="%.2f")
 ms2 = c3.number_input("MS 2 Açılış", min_value=0.0, value=3.90, step=0.01, format="%.2f")
 
-# 2.5 Alt/Üst ve KG Var/Yok Açılış Oranları
 g1, g2, g3, g4 = st.columns(4)
 ust25 = g1.number_input("2.5 Üst (0=Boş)", min_value=0.0, value=0.00, step=0.01, format="%.2f")
 alt25 = g2.number_input("2.5 Alt (0=Boş)", min_value=0.0, value=0.00, step=0.01, format="%.2f")
 kgvar = g3.number_input("KG Var (0=Boş)", min_value=0.0, value=0.00, step=0.01, format="%.2f")
 kgyok = g4.number_input("KG Yok (0=Boş)", min_value=0.0, value=0.00, step=0.01, format="%.2f")
 
-# İlk Yarı 0.5 ve 1.5 Alt/Üst Açılış Oranları
 iy1, iy2, iy3, iy4 = st.columns(4)
 iy05u = iy1.number_input("İY 0.5 Üst", min_value=0.0, value=0.00, step=0.01, format="%.2f")
 iy05a = iy2.number_input("İY 0.5 Alt", min_value=0.0, value=0.00, step=0.01, format="%.2f")
@@ -191,18 +188,20 @@ if iy15a > 0: filtre &= df_maclar["Ac_IY15Alt"].between(iy15a - tol, iy15a + tol
 if secilen_lig != "Tüm Ligler": filtre &= (df_maclar["Lig"] == secilen_lig)
 
 sonuc = df_maclar[filtre].copy()
-toplam = len(sonuc)
+toplam = int(len(sonuc))
 
 if toplam > 0:
-    m1 = (sonuc["Ms"] == "1").sum()
-    mx = (sonuc["Ms"] == "X").sum()
-    m2 = (sonuc["Ms"] == "2").sum()
-    u25 = (sonuc["AU25"] == "ÜST").sum()
-    a25 = (sonuc["AU25"] == "ALT").sum()
-    kg = (sonuc["MsKg"] == "VAR").sum()
-    kgy = (sonuc["MsKg"] == "YOK").sum()
-    iy05_ust = (sonuc["IY05"] == "ÜST").sum()
-    iy15_ust = (sonuc["IY15"] == "ÜST").sum()
+    m1 = int((sonuc["Ms"] == "1").sum())
+    mx = int((sonuc["Ms"] == "X").sum())
+    m2 = int((sonuc["Ms"] == "2").sum())
+    u25 = int((sonuc["AU25"] == "ÜST").sum())
+    a25 = int((sonuc["AU25"] == "ALT").sum())
+    kg = int((sonuc["MsKg"] == "VAR").sum())
+    kgy = int((sonuc["MsKg"] == "YOK").sum())
+    iy05_ust = int((sonuc["IY05"] == "ÜST").sum())
+    iy05_alt = toplam - iy05_ust
+    iy15_ust = int((sonuc["IY15"] == "ÜST").sum())
+    iy15_alt = toplam - iy15_ust
 
     k1, k2, k3 = st.columns(3)
     k1.markdown(f'<div class="metric-card"><div class="metric-title">MAÇ</div><div class="metric-value">{toplam}</div><div class="metric-sub">Havuz: {len(df_maclar):,}</div></div>', unsafe_allow_html=True)
