@@ -30,8 +30,8 @@ st.markdown("""
 st.title("⚽ Oran Analiz Pro")
 st.caption("Geçmiş Maç & Oran İstatistik Sistemi")
 
-@st.cache_data(show_spinner="Veritabanı yükleniyor, lütfen 20 saniye bekleyin...")
-def veriyi_yukle():
+@st.cache_data(show_spinner="Veritabanı ve kapanış oranları derleniyor...")
+def veriyi_yukle_v3():
     p1 = kagglehub.dataset_download("adamgbor/club-football-match-data-2000-2025")
     p2 = kagglehub.dataset_download("ahmadasadi00/football-betting-odds")
     dosyalar = glob.glob(os.path.join(p1, "**/*.csv"), recursive=True) + glob.glob(os.path.join(p2, "**/*.csv"), recursive=True)
@@ -50,28 +50,27 @@ def veriyi_yukle():
     df["EvSahibi"] = df["HomeTeam"].fillna(df["Home"]) if ("HomeTeam" in df.columns and "Home" in df.columns) else df.get("HomeTeam", df.get("Home", "-"))
     df["Deplasman"] = df["AwayTeam"].fillna(df["Away"]) if ("AwayTeam" in df.columns and "Away" in df.columns) else df.get("AwayTeam", df.get("Away", "-"))
 
+    def sutun_birlestir(aday_listesi):
+        seri = pd.Series(pd.NA, index=df.index)
+        for col in aday_listesi:
+            if col in df.columns:
+                seri = seri.fillna(df[col])
+        return pd.to_numeric(seri, errors="coerce")
+
     # Açılış Oranları
-    df["Ac_MS1"] = pd.to_numeric(df.get("OddHome", df.get("B365H")), errors="coerce")
-    df["Ac_MSX"] = pd.to_numeric(df.get("OddDraw", df.get("B365D")), errors="coerce")
-    df["Ac_MS2"] = pd.to_numeric(df.get("OddAway", df.get("B365A")), errors="coerce")
+    df["Ac_MS1"] = sutun_birlestir(["OddHome", "B365H", "PSH", "AvgH"])
+    df["Ac_MSX"] = sutun_birlestir(["OddDraw", "B365D", "PSD", "AvgD"])
+    df["Ac_MS2"] = sutun_birlestir(["OddAway", "B365A", "PSA", "AvgA"])
 
-    # Gerçek Kapanış Oranları (Kopyalama yapmadan gerçek değerleri alır)
-    kap1 = df["CloseHome"] if "CloseHome" in df.columns else pd.Series(pd.NA, index=df.index)
-    if "B365CH" in df.columns: kap1 = kap1.fillna(df["B365CH"])
-    df["Kap_MS1"] = pd.to_numeric(kap1, errors="coerce")
+    # Tüm Olası Gerçek Kapanış Oran Sütunları
+    df["Kap_MS1"] = sutun_birlestir(["CloseHome", "OddHomeClose", "B365CH", "PSCH", "AvgCH", "MaxCH"])
+    df["Kap_MSX"] = sutun_birlestir(["CloseDraw", "OddDrawClose", "B365CD", "PSCD", "AvgCD", "MaxCD"])
+    df["Kap_MS2"] = sutun_birlestir(["CloseAway", "OddAwayClose", "B365CA", "PSCA", "AvgCA", "MaxCA"])
 
-    kapx = df["CloseDraw"] if "CloseDraw" in df.columns else pd.Series(pd.NA, index=df.index)
-    if "B365CD" in df.columns: kapx = kapx.fillna(df["B365CD"])
-    df["Kap_MSX"] = pd.to_numeric(kapx, errors="coerce")
-
-    kap2 = df["CloseAway"] if "CloseAway" in df.columns else pd.Series(pd.NA, index=df.index)
-    if "B365CA" in df.columns: kap2 = kap2.fillna(df["B365CA"])
-    df["Kap_MS2"] = pd.to_numeric(kap2, errors="coerce")
-
-    df["IY_Ev"] = pd.to_numeric(df.get("HTHome", df.get("HTHG")), errors="coerce")
-    df["IY_Dep"] = pd.to_numeric(df.get("HTAway", df.get("HTAG")), errors="coerce")
-    df["MS_Ev"] = pd.to_numeric(df.get("FTHome", df.get("FTHG")), errors="coerce")
-    df["MS_Dep"] = pd.to_numeric(df.get("FTAway", df.get("FTAG")), errors="coerce")
+    df["IY_Ev"] = sutun_birlestir(["HTHome", "HTHG"])
+    df["IY_Dep"] = sutun_birlestir(["HTAway", "HTAG"])
+    df["MS_Ev"] = sutun_birlestir(["FTHome", "FTHG"])
+    df["MS_Dep"] = sutun_birlestir(["FTAway", "FTAG"])
 
     df = df.dropna(subset=["MS_Ev", "MS_Dep", "Ac_MS1", "Ac_MS2"]).drop_duplicates(subset=["Tarih", "EvSahibi", "Deplasman"], keep="last").copy()
 
@@ -110,7 +109,9 @@ def veriyi_yukle():
         "AU35": ((ms_ev + ms_dep) > 3.5).map({True: "ÜST", False: "ALT"})
     })
 
-df_maclar = veriyi_yukle()
+df_maclar = veriyi_yukle_v3()
+kapanis_sayisi = df_maclar["Kap_MS1"].notna().sum()
+st.caption(f"📊 Açılış Havuzu: {len(df_maclar):,} Maç | Kapanış Havuzu: {kapanis_sayisi:,} Maç")
 
 oran_tipi = st.radio("Oran Türü:", ["Açılış", "Kapanış"], horizontal=True)
 c1, c2 = st.columns(2)
