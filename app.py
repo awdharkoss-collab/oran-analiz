@@ -196,5 +196,3 @@ if toplam > 0:
     s2.metric("MS X", f"%{round(mx/toplam*100)}", f"{toplam} maçta {mx}")
     s3.metric("MS 2", f"%{round(m2/toplam*100)}", f"{toplam} maçta {m2}")
 
-    st.subheader("🎯 İY / MS Dağılımı")
-    iyms_df = sonuc["IyMs"].value_counts().reset_index()
