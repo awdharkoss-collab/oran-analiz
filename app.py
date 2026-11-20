@@ -30,19 +30,37 @@ st.markdown("""
 st.title("⚽ Oran Analiz Pro")
 st.caption("Geçmiş Maç & Oran İstatistik Sistemi")
 
-@st.cache_data(show_spinner="Veritabanı ve kapanış oranları derleniyor...")
-def veriyi_yukle_v3():
-    p1 = kagglehub.dataset_download("adamgbor/club-football-match-data-2000-2025")
-    p2 = kagglehub.dataset_download("ahmadasadi00/football-betting-odds")
-    dosyalar = glob.glob(os.path.join(p1, "**/*.csv"), recursive=True) + glob.glob(os.path.join(p2, "**/*.csv"), recursive=True)
-    
+@st.cache_data(show_spinner="Açılış ve Gerçek Kapanış oranları derleniyor (~25 sn)...")
+def veriyi_yukle_v4():
     df_list = []
-    for d in dosyalar:
-        if os.path.getsize(d) > 50000:
+
+    # 1. Kaggle Geniş Açılış Arşivi (2000 - 2025)
+    try:
+        p1 = kagglehub.dataset_download("adamgbor/club-football-match-data-2000-2025")
+        p2 = kagglehub.dataset_download("ahmadasadi00/football-betting-odds")
+        dosyalar = glob.glob(os.path.join(p1, "**/*.csv"), recursive=True) + glob.glob(os.path.join(p2, "**/*.csv"), recursive=True)
+        for d in dosyalar:
+            if os.path.getsize(d) > 50000:
+                try:
+                    df_list.append(pd.read_csv(d, low_memory=False))
+                except:
+                    pass
+    except:
+        pass
+
+    # 2. Resmi Football-Data Gerçek Kapanış Oranlı Sezonlar (2019 - 2026)
+    ligler = ["E0", "E1", "E2", "E3", "D1", "D2", "SP1", "SP2", "I1", "I2", "F1", "F2", "T1", "N1", "P1", "B1", "SC0", "G1"]
+    sezonlar = ["2526", "2425", "2324", "2223", "2122", "2021", "1920"]
+    for sez in sezonlar:
+        for lg in ligler:
+            url = f"https://football-data.co.uk{sez}/{lg}.csv"
             try:
-                df_list.append(pd.read_csv(d, low_memory=False))
+                t_df = pd.read_csv(url, encoding="latin1", on_bad_lines="skip")
+                if "B365CH" in t_df.columns or "PSCH" in t_df.columns:
+                    df_list.append(t_df)
             except:
                 pass
+
     df = pd.concat(df_list, ignore_index=True)
 
     df["LigKod"] = df["Division"].fillna(df["Div"]) if ("Division" in df.columns and "Div" in df.columns) else df.get("Division", df.get("Div", "Diğer"))
@@ -62,10 +80,10 @@ def veriyi_yukle_v3():
     df["Ac_MSX"] = sutun_birlestir(["OddDraw", "B365D", "PSD", "AvgD"])
     df["Ac_MS2"] = sutun_birlestir(["OddAway", "B365A", "PSA", "AvgA"])
 
-    # Tüm Olası Gerçek Kapanış Oran Sütunları
-    df["Kap_MS1"] = sutun_birlestir(["CloseHome", "OddHomeClose", "B365CH", "PSCH", "AvgCH", "MaxCH"])
-    df["Kap_MSX"] = sutun_birlestir(["CloseDraw", "OddDrawClose", "B365CD", "PSCD", "AvgCD", "MaxCD"])
-    df["Kap_MS2"] = sutun_birlestir(["CloseAway", "OddAwayClose", "B365CA", "PSCA", "AvgCA", "MaxCA"])
+    # Gerçek Kapanış Oranları
+    df["Kap_MS1"] = sutun_birlestir(["B365CH", "PSCH", "AvgCH", "MaxCH", "CloseHome"])
+    df["Kap_MSX"] = sutun_birlestir(["B365CD", "PSCD", "AvgCD", "MaxCD", "CloseDraw"])
+    df["Kap_MS2"] = sutun_birlestir(["B365CA", "PSCA", "AvgCA", "MaxCA", "CloseAway"])
 
     df["IY_Ev"] = sutun_birlestir(["HTHome", "HTHG"])
     df["IY_Dep"] = sutun_birlestir(["HTAway", "HTAG"])
@@ -109,9 +127,9 @@ def veriyi_yukle_v3():
         "AU35": ((ms_ev + ms_dep) > 3.5).map({True: "ÜST", False: "ALT"})
     })
 
-df_maclar = veriyi_yukle_v3()
+df_maclar = veriyi_yukle_v4()
 kapanis_sayisi = df_maclar["Kap_MS1"].notna().sum()
-st.caption(f"📊 Açılış Havuzu: {len(df_maclar):,} Maç | Kapanış Havuzu: {kapanis_sayisi:,} Maç")
+st.caption(f"📊 Açılış Havuzu: {len(df_maclar):,} Maç | Gerçek Kapanış Havuzu: {kapanis_sayisi:,} Maç")
 
 oran_tipi = st.radio("Oran Türü:", ["Açılış", "Kapanış"], horizontal=True)
 c1, c2 = st.columns(2)
