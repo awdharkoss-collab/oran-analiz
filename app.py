@@ -4,11 +4,15 @@ import kagglehub
 import os
 import glob
 
-st.set_page_config(page_title="Bet365 Pro Analiz", page_icon="⚽", layout="centered")
+st.set_page_config(page_title="Oran Analiz Pro", page_icon="⚽", layout="centered")
 
 st.markdown("""
 <style>
     .stApp { background-color: #0e1117; color: #ffffff; }
+    label, .stRadio label, .stSelectbox label, .stNumberInput label, p {
+        color: #ffffff !important;
+        font-weight: 600 !important;
+    }
     .metric-card {
         background-color: #1c222d;
         border: 1px solid #2e3748;
@@ -23,8 +27,8 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.title("⚽ Bet365 Oran Analiz")
-st.caption("600.000+ Maçlık Açılış & Kapanış Arşivi")
+st.title("⚽ Oran Analiz Pro")
+st.caption("Geniş Kapsamlı Geçmiş Maç & Oran İstatistik Arşivi")
 
 @st.cache_data(show_spinner="Veritabanı yükleniyor, lütfen 20 saniye bekleyin...")
 def veriyi_yukle():
@@ -58,7 +62,7 @@ def veriyi_yukle():
     df["MS_Ev"] = pd.to_numeric(df.get("FTHome", df.get("FTHG")), errors="coerce")
     df["MS_Dep"] = pd.to_numeric(df.get("FTAway", df.get("FTAG")), errors="coerce")
 
-    df = df.dropna(subset=["MS_Ev", "MS_Dep", "Ac_MS1", "Ac_MS2"]).drop_duplicates(subset=["Tarih", "EvSahibi", "Deplasman"], keep="last").tail(600000).copy()
+    df = df.dropna(subset=["MS_Ev", "MS_Dep", "Ac_MS1", "Ac_MS2"]).drop_duplicates(subset=["Tarih", "EvSahibi", "Deplasman"], keep="last").copy()
 
     lig_sozlugu = {
         "E0": "İngiltere Premier Lig", "E1": "İngiltere Championship", "E2": "İngiltere League 1", "E3": "İngiltere League 2",
@@ -130,7 +134,7 @@ if toplam > 0:
     kg = (sonuc["MsKg"] == "VAR").sum()
 
     k1, k2, k3 = st.columns(3)
-    k1.markdown(f'<div class="metric-card"><div class="metric-title">MAÇ</div><div class="metric-value">{toplam}</div><div class="metric-sub">Toplam</div></div>', unsafe_allow_html=True)
+    k1.markdown(f'<div class="metric-card"><div class="metric-title">MAÇ</div><div class="metric-value">{toplam}</div><div class="metric-sub">Havuz: {len(df_maclar):,}</div></div>', unsafe_allow_html=True)
     k2.markdown(f'<div class="metric-card"><div class="metric-title">2.5 ÜST</div><div class="metric-value">%{u25/toplam*100:.0f}</div><div class="metric-sub">{toplam} maçta {u25}</div></div>', unsafe_allow_html=True)
     k3.markdown(f'<div class="metric-card"><div class="metric-title">KG VAR</div><div class="metric-value">%{kg/toplam*100:.0f}</div><div class="metric-sub">{toplam} maçta {kg}</div></div>', unsafe_allow_html=True)
 
@@ -154,4 +158,6 @@ if toplam > 0:
 
     st.dataframe(sonuc.head(150).style.map(renklendir, subset=["Ms", "IyMs", "MsKg", "AU25", "AU35"]), use_container_width=True, hide_index=True)
 else:
-    st.warning("Bu oranlarda maç bulunamadı.")
+    st.warning("Bu oranlarda maç bulunamadı. Tolerans değerini artırarak tekrar deneyin.")
+
+st.caption("ℹ️ Bu uygulama yalnızca geçmiş maç verilerine dayalı istatistiksel analiz sunar; bahis oynatmaz.")
